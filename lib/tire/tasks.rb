@@ -76,6 +76,21 @@ namespace :tire do
       $ rake environment tire:import:model CLASS='Article' INDEX='articles-new'
   DESC
 
+  import_modelnocreate_desc = <<-DESC.gsub(/    /, '')
+    Import data from your model (pass name as CLASS environment variable).
+
+      $ rake environment tire:import:model CLASS='MyModel'
+
+    Pass params for the `import` method:
+      $ rake environment tire:import:model CLASS='Article' PARAMS='{:page => 1}'
+
+    Force rebuilding the index (delete and create):
+      $ rake environment tire:import:model CLASS='Article' FORCE=1
+
+    Set target index name:
+      $ rake environment tire:import:model CLASS='Article' INDEX='articles-new'
+  DESC
+
   import_all_desc = <<-DESC.gsub(/    /, '')
     Import all indices from `app/models` (or use DIR environment variable).
 
@@ -108,6 +123,32 @@ namespace :tire do
 
       Tire::Tasks::Import.delete_index(index) if ENV['FORCE']
       Tire::Tasks::Import.create_index(index, klass)
+
+      Tire::Tasks::Import.import_model(index, klass, params)
+
+      puts '[IMPORT] Done.'
+    end
+
+    desc import_modelnocreate_desc
+    task :modelnocreate do
+      if ENV['CLASS'].to_s == ''
+        puts '='*90, 'USAGE', '='*90, import_model_desc, ""
+        exit(1)
+      end
+
+      klass  = eval(ENV['CLASS'].to_s)
+      params = eval(ENV['PARAMS'].to_s) || {}
+      total  = klass.count rescue nil
+
+      if ENV['INDEX']
+        index = Tire::Index.new(ENV['INDEX'])
+        params[:index] = index.name
+      else
+        index = klass.tire.index
+      end
+
+      Tire::Tasks::Import.add_pagination_to_klass(klass)
+      Tire::Tasks::Import.progress_bar(klass, total) if total
 
       Tire::Tasks::Import.import_model(index, klass, params)
 
@@ -185,3 +226,4 @@ namespace :tire do
   end
 
 end
+
